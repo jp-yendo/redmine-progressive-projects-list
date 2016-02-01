@@ -20,6 +20,22 @@ module Progressive::ProjectsHelperPatch
         end
       end
 
+      def progress_bar_width(pcts, options={})
+        pcts = [pcts, pcts] unless pcts.is_a?(Array)
+        pcts = pcts.collect(&:round)
+        pcts[1] = pcts[1] - pcts[0]
+        pcts << (100 - pcts[1] - pcts[0])
+        width = options[:width] || '100px;'
+        legend = options[:legend] || ''
+        content_tag('table',
+          content_tag('tr',
+            (pcts[0] > 0 ? content_tag('td', '', :style => "width: #{pcts[0]}%;", :class => 'closed') : ''.html_safe) +
+            (pcts[1] > 0 ? content_tag('td', '', :style => "width: #{pcts[1]}%;", :class => 'done') : ''.html_safe) +
+            (pcts[2] > 0 ? content_tag('td', '', :style => "width: #{pcts[2]}%;", :class => 'todo') : ''.html_safe)
+          ), :class => "progress progress-#{pcts[0]}", :style => "width: #{width};").html_safe +
+          content_tag('p', legend, :class => 'percent').html_safe + '<br />'.html_safe
+      end
+      
       # Returns project's and its versions' progress bars
       def render_project_progress_bars(project)
         project.extend(Progressive::ProjectDecorator)
@@ -30,7 +46,7 @@ module Progressive::ProjectsHelperPatch
             " <small>(" + l(:label_total) + ": #{project.issues.count})</small> "
           s << due_date_tag(project.opened_due_date) if project.opened_due_date
           s << "</div>"
-          s << progress_bar([project.issues_closed_percent, project.issues_completed_percent], :width => '30em', :legend => '%0.0f%' % project.issues_closed_percent)
+          s << progress_bar_width([project.issues_closed_percent, project.issues_completed_percent], :width => '30em', :legend => '%0.0f%' % project.issues_closed_percent)
         end
 
         if project.versions.open.any?
@@ -42,7 +58,7 @@ module Progressive::ProjectsHelperPatch
               "<small> / " + link_to_if(version.closed_issues_count > 0, l(:label_x_closed_issues_abbr, :count => version.closed_issues_count), :controller => 'issues', :action => 'index', :project_id => version.project, :status_id => 'c', :fixed_version_id => version, :set_filter => 1) + "</small>" + ". "
             s << due_date_tag(version.effective_date) if version.effective_date
             s << "<br>" +
-              progress_bar([version.closed_percent, version.completed_percent], :width => '30em', :legend => ('%0.0f%' % version.completed_percent))
+              progress_bar_width([version.closed_percent, version.completed_percent], :width => '30em', :legend => ('%0.0f%' % version.completed_percent))
           end
           s << "</div>"
         end
